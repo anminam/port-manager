@@ -1,6 +1,6 @@
 {
   "name": "port-manager",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "macOS 포트 확인 및 종료 GUI 앱",
   "scripts": {
     "tauri": "tauri",
