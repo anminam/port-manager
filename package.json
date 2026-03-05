@@ -1,43 +1,17 @@
 {
-  "name": "check-port",
+  "name": "port-manager",
   "version": "1.0.0",
   "description": "macOS 포트 확인 및 종료 GUI 앱",
-  "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev",
-    "build": "electron-builder --mac",
-    "build:dmg": "electron-builder --mac dmg",
-    "build:zip": "electron-builder --mac zip"
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
   },
-  "author": "",
   "license": "MIT",
-  "build": {
-    "appId": "com.check-port.app",
-    "productName": "Port Manager",
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "icon": "icon.icns",
-      "target": ["dmg", "zip"]
-    },
-    "dmg": {
-      "title": "Port Manager",
-      "iconSize": 80,
-      "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
-      ]
-    },
-    "files": [
-      "main.js",
-      "preload.js",
-      "index.html",
-      "icon.icns",
-      "icon.iconset/**/*"
-    ]
-  },
   "devDependencies": {
-    "electron": "^33.0.0",
-    "electron-builder": "^25.1.8"
+    "@tauri-apps/cli": "^2.10.1"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1"
   }
 }

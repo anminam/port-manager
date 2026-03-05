@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Port Manager</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #1a1a2e;
+        color: #e0e0e0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        user-select: none;
+      }
+
+      .titlebar {
+        height: 38px;
+        flex-shrink: 0;
+        -webkit-app-region: drag;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 20px 16px;
+        flex-shrink: 0;
+      }
+
+      .toolbar h1 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #fff;
+        margin-right: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .toolbar h1 svg { flex-shrink: 0; }
+
+      .search-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .search-wrap svg {
+        position: absolute;
+        left: 10px;
+        pointer-events: none;
+        color: #555;
+      }
+
+      .search-box {
+        padding: 8px 14px 8px 34px;
+        border: 1px solid #333;
+        border-radius: 8px;
+        background: #16213e;
+        color: #e0e0e0;
+        font-size: 14px;
+        width: 240px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .search-box:focus { border-color: #6c63ff; }
+      .search-box::placeholder { color: #666; }
+
+      .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .btn-refresh {
+        background: #6c63ff;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .btn-refresh:hover { background: #5a52d5; }
+      .btn-refresh:active { transform: scale(0.96); }
+
+      .content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 20px 20px;
+      }
+
+      .table-wrap {
+        background: #16213e;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      thead th {
+        position: sticky;
+        top: 0;
+        background: #0f3460;
+        padding: 12px 16px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #aaa;
+      }
+
+      tbody tr {
+        border-bottom: 1px solid #1a1a3e;
+        transition: background 0.15s;
+      }
+
+      tbody tr:hover { background: #1e2a4a; }
+      tbody tr:last-child { border-bottom: none; }
+
+      td {
+        padding: 10px 16px;
+        font-size: 14px;
+      }
+
+      .port-num {
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .pid-num {
+        font-variant-numeric: tabular-nums;
+        color: #888;
+      }
+
+      .cmd-name { color: #e0e0e0; }
+
+      .cmd-detail {
+        color: #666;
+        font-size: 11px;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 350px;
+      }
+
+      .user-name {
+        color: #888;
+        font-size: 13px;
+      }
+
+      /* 안전도 색상 */
+      tr[data-safety="dev"] .port-num { color: #2ecc71; }
+      tr[data-safety="unknown"] .port-num { color: #f39c12; }
+      tr[data-safety="system"] .port-num { color: #e74c3c; }
+
+      tr[data-safety="dev"] { border-left: 3px solid #2ecc71; }
+      tr[data-safety="unknown"] { border-left: 3px solid #f39c12; }
+      tr[data-safety="system"] { border-left: 3px solid #e74c3c; }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        vertical-align: middle;
+      }
+
+      .badge-dev { background: rgba(46,204,113,0.15); color: #2ecc71; }
+      .badge-unknown { background: rgba(243,156,18,0.15); color: #f39c12; }
+      .badge-system { background: rgba(231,76,60,0.15); color: #e74c3c; }
+
+      .filter-tabs {
+        display: flex;
+        gap: 6px;
+        padding: 0 20px 12px;
+        flex-shrink: 0;
+      }
+
+      .filter-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 14px;
+        border: 1px solid #333;
+        border-radius: 20px;
+        background: transparent;
+        color: #888;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .filter-tab:hover { border-color: #555; color: #ccc; }
+      .filter-tab.active { border-color: #6c63ff; color: #6c63ff; background: rgba(108,99,255,0.1); }
+      .filter-tab .count { margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+      .btn-kill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 12px;
+        background: transparent;
+        border: 1px solid #e74c3c;
+        color: #e74c3c;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .btn-kill:hover { background: #e74c3c; color: #fff; }
+      .btn-kill:disabled { opacity: 0.3; cursor: not-allowed; }
+      .btn-kill-safe { border-color: #2ecc71; color: #2ecc71; }
+      .btn-kill-safe:hover { background: #2ecc71; color: #fff; }
+
+      tr[data-safety="system"] .btn-kill { opacity: 0.3; border-color: #555; color: #555; }
+      tr[data-safety="system"] .btn-kill:hover { opacity: 1; border-color: #e74c3c; color: #e74c3c; }
+
+      .status-bar {
+        padding: 10px 20px;
+        font-size: 12px;
+        color: #666;
+        display: flex;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+
+      .empty-state { text-align: center; padding: 60px 20px; color: #555; }
+      .empty-state p { font-size: 15px; margin-top: 8px; }
+      .loading { text-align: center; padding: 40px; color: #666; }
+
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #333;
+        border-top-color: #6c63ff;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      .toast {
+        position: fixed;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        opacity: 0;
+        transition: all 0.3s;
+        pointer-events: none;
+        z-index: 100;
+      }
+
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .toast.success { background: #27ae60; color: #fff; }
+      .toast.error { background: #e74c3c; color: #fff; }
+
+      .content::-webkit-scrollbar { width: 6px; }
+      .content::-webkit-scrollbar-track { background: transparent; }
+      .content::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <div class="titlebar" data-tauri-drag-region></div>
+
+    <div class="toolbar">
+      <h1>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        Port Manager
+      </h1>
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-box" id="searchInput" placeholder="포트 번호 또는 프로세스 검색..." />
+      </div>
+      <button class="btn btn-refresh" id="refreshBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        새로고침
+      </button>
+    </div>
+
+    <div class="filter-tabs" id="filterTabs">
+      <button class="filter-tab active" data-filter="all">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        전체 <span class="count" id="countAll"></span>
+      </button>
+      <button class="filter-tab" data-filter="dev">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2ecc71" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        개발 <span class="count" id="countDev"></span>
+      </button>
+      <button class="filter-tab" data-filter="unknown">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f39c12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        기타 <span class="count" id="countUnknown"></span>
+      </button>
+      <button class="filter-tab" data-filter="system">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        시스템 <span class="count" id="countSystem"></span>
+      </button>
+    </div>
+
+    <div class="content">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>포트</th>
+              <th>프로세스</th>
+              <th>PID</th>
+              <th>사용자</th>
+              <th>분류</th>
+              <th style="text-align: right">동작</th>
+            </tr>
+          </thead>
+          <tbody id="portList"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span id="statusText">준비 중...</span>
+      <span id="countText"></span>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      // Tauri IPC
+      const { invoke } = window.__TAURI__.core;
+      const { ask } = window.__TAURI__.dialog;
+
+      const portList = document.getElementById("portList");
+      const searchInput = document.getElementById("searchInput");
+      const refreshBtn = document.getElementById("refreshBtn");
+      const statusText = document.getElementById("statusText");
+      const countText = document.getElementById("countText");
+      const toast = document.getElementById("toast");
+      const filterTabs = document.getElementById("filterTabs");
+
+      let allPorts = [];
+      let activeFilter = "all";
+
+      function showToast(message, type = "success") {
+        toast.textContent = message;
+        toast.className = `toast ${type} show`;
+        setTimeout(() => toast.classList.remove("show"), 2500);
+      }
+
+      function updateCounts() {
+        const dev = allPorts.filter((p) => p.safety === "dev").length;
+        const unknown = allPorts.filter((p) => p.safety === "unknown").length;
+        const system = allPorts.filter((p) => p.safety === "system").length;
+        document.getElementById("countAll").textContent = allPorts.length || "";
+        document.getElementById("countDev").textContent = dev || "";
+        document.getElementById("countUnknown").textContent = unknown || "";
+        document.getElementById("countSystem").textContent = system || "";
+      }
+
+      const BADGE_ICONS = {
+        dev: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
+        unknown: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        system: '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+      };
+
+      const KILL_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+
+      function getBadgeClass(s) {
+        return { dev: "badge-dev", unknown: "badge-unknown", system: "badge-system" }[s] || "";
+      }
+
+      function getKillBtnClass(s) {
+        return s === "dev" ? "btn-kill btn-kill-safe" : "btn-kill";
+      }
+
+      function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+
+      function renderPorts(ports) {
+        if (ports.length === 0) {
+          portList.innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>${allPorts.length === 0 ? "열린 포트가 없습니다" : "검색 결과가 없습니다"}</p></div></td></tr>`;
+          countText.textContent = "";
+          return;
+        }
+
+        portList.innerHTML = ports.map((p) => `
+          <tr data-safety="${p.safety}">
+            <td class="port-num">${p.port}</td>
+            <td>
+              <div class="cmd-name">${escapeHtml(p.command)}</div>
+              ${p.detail ? `<div class="cmd-detail" title="${escapeHtml(p.fullCommand)}">${escapeHtml(p.detail)}</div>` : ""}
+            </td>
+            <td class="pid-num">${p.pid}</td>
+            <td class="user-name">${escapeHtml(p.user)}</td>
+            <td><span class="badge ${getBadgeClass(p.safety)}">${BADGE_ICONS[p.safety] || ""}${p.label}</span></td>
+            <td style="text-align: right">
+              <button class="${getKillBtnClass(p.safety)}" onclick="killPort(${p.pid}, '${p.safety}', this)">${KILL_ICON} Kill</button>
+            </td>
+          </tr>
+        `).join("");
+
+        countText.textContent = `${ports.length}개 포트`;
+      }
+
+      function getFilteredPorts() {
+        let ports = allPorts;
+        if (activeFilter !== "all") {
+          ports = ports.filter((p) => p.safety === activeFilter);
+        }
+        const query = searchInput.value.toLowerCase().trim();
+        if (query) {
+          ports = ports.filter((p) =>
+            String(p.port).includes(query) ||
+            p.command.toLowerCase().includes(query) ||
+            String(p.pid).includes(query) ||
+            p.user.toLowerCase().includes(query)
+          );
+        }
+        return ports;
+      }
+
+      function applyFilters() {
+        renderPorts(getFilteredPorts());
+      }
+
+      async function loadPorts() {
+        portList.innerHTML = `<tr><td colspan="6"><div class="loading"><span class="spinner"></span>포트 스캔 중...</div></td></tr>`;
+        statusText.textContent = "스캔 중...";
+        try {
+          allPorts = await invoke("get_ports");
+          updateCounts();
+          applyFilters();
+          statusText.textContent = `마지막 스캔: ${new Date().toLocaleTimeString("ko-KR")}`;
+        } catch (err) {
+          portList.innerHTML = `<tr><td colspan="6"><div class="empty-state"><p>포트 조회에 실패했습니다</p></div></td></tr>`;
+          statusText.textContent = "오류 발생";
+        }
+      }
+
+      function resetKillBtn(btn) {
+        btn.disabled = false;
+        btn.innerHTML = `${KILL_ICON} Kill`;
+      }
+
+      async function killPort(pid, safety, btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;margin:0;border-width:1.5px"></span>';
+
+        const isSystem = safety === "system";
+        const title = isSystem ? "시스템 프로세스 종료 경고" : "프로세스 종료";
+        const message = isSystem
+          ? `PID ${pid} 는 시스템 프로세스입니다. 종료하면 시스템이 불안정해질 수 있습니다. 정말 종료하시겠습니까?`
+          : `PID ${pid} 프로세스를 종료하시겠습니까?`;
+
+        try {
+          const confirmed = await ask(message, { title, kind: isSystem ? "warning" : "info" });
+          if (!confirmed) {
+            resetKillBtn(btn);
+            return;
+          }
+
+          await invoke("kill_process", { pid });
+          showToast(`PID ${pid} 종료됨`, "success");
+          setTimeout(loadPorts, 500);
+        } catch (err) {
+          showToast(`종료 실패: ${err}`, "error");
+          resetKillBtn(btn);
+        }
+      }
+
+      filterTabs.addEventListener("click", (e) => {
+        const tab = e.target.closest(".filter-tab");
+        if (!tab) return;
+        filterTabs.querySelectorAll(".filter-tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        activeFilter = tab.dataset.filter;
+        applyFilters();
+      });
+
+      searchInput.addEventListener("input", applyFilters);
+      refreshBtn.addEventListener("click", loadPorts);
+      loadPorts();
+    </script>
+  </body>
+</html>
