@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Port Manager",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "identifier": "com.anminam.port-manager",
   "build": {
     "frontendDist": "../dist-html",
@@ -37,7 +37,9 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "10.15"
+      "minimumSystemVersion": "10.15",
+      "entitlements": null,
+      "signingIdentity": null
     },
     "category": "DeveloperTool"
   }

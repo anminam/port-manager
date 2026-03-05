@@ -153,19 +153,27 @@ fn summarize_command(full_cmd: &str) -> String {
 }
 
 #[tauri::command]
-fn get_ports() -> Vec<PortInfo> {
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg("lsof -i -P -n | grep LISTEN")
-        .output();
+fn get_ports() -> Result<Vec<PortInfo>, String> {
+    let output = Command::new("lsof")
+        .args(["-i", "-P", "-n"])
+        .output()
+        .map_err(|e| format!("PERMISSION_DENIED:{}", e))?;
 
-    let stdout = match output {
-        Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
-        Err(_) => return vec![],
-    };
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if stderr.contains("Operation not permitted") {
+        return Err("PERMISSION_DENIED:lsof 실행 권한이 없습니다".into());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    // grep LISTEN 필터링
+    let stdout: String = stdout
+        .lines()
+        .filter(|l| l.contains("LISTEN"))
+        .collect::<Vec<_>>()
+        .join("\n");
 
     if stdout.is_empty() {
-        return vec![];
+        return Ok(vec![]);
     }
 
     let mut ports = Vec::new();
@@ -231,7 +239,7 @@ fn get_ports() -> Vec<PortInfo> {
         order(&a.safety).cmp(&order(&b.safety)).then(a.port.cmp(&b.port))
     });
 
-    ports
+    Ok(ports)
 }
 
 #[tauri::command]
