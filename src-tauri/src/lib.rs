@@ -153,7 +153,7 @@ fn summarize_command(full_cmd: &str) -> String {
 }
 
 #[tauri::command]
-fn get_ports() -> Result<Vec<PortInfo>, String> {
+async fn get_ports() -> Result<Vec<PortInfo>, String> {
     let output = Command::new("lsof")
         .args(["-i", "-P", "-n"])
         .output()
@@ -243,17 +243,40 @@ fn get_ports() -> Result<Vec<PortInfo>, String> {
 }
 
 #[tauri::command]
-fn kill_process(pid: u32) -> Result<String, String> {
-    let output = Command::new("kill")
-        .arg("-9")
-        .arg(pid.to_string())
+async fn kill_process(pid: u32) -> Result<String, String> {
+    // 먼저 프로세스 그룹 킬 시도 (자식 프로세스도 함께 종료)
+    let pgid_output = Command::new("/bin/ps")
+        .args(["-o", "pgid=", "-p", &pid.to_string()])
+        .output();
+
+    if let Ok(pgid_out) = pgid_output {
+        let pgid_str = String::from_utf8_lossy(&pgid_out.stdout).trim().to_string();
+        if let Ok(pgid) = pgid_str.parse::<i32>() {
+            // 프로세스 그룹 전체 킬 시도 (실패해도 개별 킬로 폴백)
+            let _ = Command::new("/bin/kill")
+                .args(["-9", &format!("-{}", pgid)])
+                .output();
+        }
+    }
+
+    // 개별 프로세스 킬 (위에서 이미 죽었어도 안전)
+    let output = Command::new("/bin/kill")
+        .args(["-9", &pid.to_string()])
         .output()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("kill 명령 실행 실패: {}", e))?;
 
     if output.status.success() {
         Ok(format!("PID {} 종료됨", pid))
     } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        // 이미 종료된 프로세스인 경우 성공으로 처리
+        if stderr.contains("No such process") {
+            Ok(format!("PID {} 이미 종료됨", pid))
+        } else if stderr.contains("Operation not permitted") {
+            Err(format!("권한 부족: PID {} 종료 불가 (sudo 필요)", pid))
+        } else {
+            Err(format!("종료 실패: {}", stderr))
+        }
     }
 }
 
